@@ -1,0 +1,20 @@
+<odoo>
+    <menuitem id="menu_stock_analytics_root" name="Analytics" parent="stock.menu_stock_root" sequence="95" groups="stock_advanced_analytics.group_stock_analytics_user"/>
+    <menuitem id="menu_stock_analytics_live" name="Live Dashboard" parent="menu_stock_analytics_root" action="action_stock_analytics_dashboard_live" sequence="1"/>
+    <menuitem id="menu_stock_analytics_location" name="Stock by Location" parent="menu_stock_analytics_root" action="action_stock_analytics_dashboard_location" sequence="2"/>
+    <menuitem id="menu_stock_analytics_history" name="Historical Stock" parent="menu_stock_analytics_root" action="action_stock_analytics_dashboard_history" sequence="3"/>
+    <menuitem id="menu_stock_analytics_movement" name="Stock Movement Analysis" parent="menu_stock_analytics_root" action="action_stock_analytics_dashboard_movement" sequence="4"/>
+    <menuitem id="menu_stock_analytics_internal" name="Internal Transfer Analysis" parent="menu_stock_analytics_root" action="action_stock_analytics_dashboard_internal" sequence="5"/>
+    <menuitem id="menu_stock_analytics_receipts" name="Receipts Analysis" parent="menu_stock_analytics_root" action="action_stock_analytics_dashboard_receipts" sequence="6"/>
+    <menuitem id="menu_stock_analytics_consumption" name="Consumption Analytics" parent="menu_stock_analytics_root" action="action_stock_analytics_dashboard_consumption" sequence="7"/>
+    <menuitem id="menu_stock_analytics_branch" name="Branch Analytics" parent="menu_stock_analytics_root" action="action_stock_analytics_dashboard_branch" sequence="8"/>
+    <menuitem id="menu_stock_analytics_operation" name="Operation Type Monitor" parent="menu_stock_analytics_root" action="action_stock_analytics_dashboard_operation" sequence="9"/>
+    <menuitem id="menu_stock_analytics_unfinished" name="Unfinished Operations" parent="menu_stock_analytics_root" action="action_stock_analytics_dashboard_unfinished" sequence="10"/>
+    <menuitem id="menu_stock_analytics_reports" name="Reports" parent="menu_stock_analytics_root" action="action_stock_analytics_report_wizard" sequence="11"/>
+    <menuitem id="menu_stock_analytics_rules" name="Stock Rules" parent="menu_stock_analytics_root" action="action_stock_analytics_rule" sequence="12"/>
+    <menuitem id="menu_stock_analytics_opening" name="Opening Balances" parent="menu_stock_analytics_root" action="action_stock_analytics_opening_balance" sequence="13"/>
+    <menuitem id="menu_stock_analytics_location_map" name="Location Mapping" parent="menu_stock_analytics_root" action="action_stock_analytics_location_map" sequence="14"/>
+    <menuitem id="menu_stock_analytics_operation_map" name="Operation Mapping" parent="menu_stock_analytics_root" action="action_stock_analytics_operation_map" sequence="15"/>
+    <menuitem id="menu_stock_analytics_status_map" name="Status Mapping" parent="menu_stock_analytics_root" action="action_stock_analytics_status_map" sequence="16"/>
+    <menuitem id="menu_stock_analytics_configuration" name="Configuration" parent="menu_stock_analytics_root" action="action_stock_analytics_config_settings" sequence="17" groups="stock_advanced_analytics.group_stock_analytics_manager"/>
+</odoo>

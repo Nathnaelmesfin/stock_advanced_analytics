@@ -1,0 +1,13 @@
+<odoo>
+    <record id="view_stock_analytics_operation_map_tree" model="ir.ui.view">
+        <field name="name">stock.analytics.operation.map.tree</field><field name="model">stock.analytics.operation.map</field>
+        <field name="arch" type="xml"><tree><field name="name"/><field name="picking_type_id"/><field name="operation_role"/><field name="source_location_id"/><field name="destination_location_id"/><field name="department"/><field name="branch_label"/><field name="is_consumption_operation"/><field name="is_branch_transfer"/><field name="is_staff_meal_operation"/><field name="is_catering_operation"/><field name="is_return_operation"/><field name="is_internal_transfer_operation"/><field name="is_receipt_operation"/><field name="active"/><field name="company_id"/></tree></field>
+    </record>
+    <record id="view_stock_analytics_operation_map_form" model="ir.ui.view">
+        <field name="name">stock.analytics.operation.map.form</field><field name="model">stock.analytics.operation.map</field>
+        <field name="arch" type="xml"><form string="Operation Mapping"><sheet><group><field name="name"/><field name="picking_type_id"/><field name="operation_role"/><field name="source_location_id"/><field name="destination_location_id"/><field name="department"/><field name="branch_label"/><field name="is_consumption_operation"/><field name="is_branch_transfer"/><field name="is_staff_meal_operation"/><field name="is_catering_operation"/><field name="is_return_operation"/><field name="is_internal_transfer_operation"/><field name="is_receipt_operation"/><field name="active"/><field name="company_id"/></group></sheet></form></field>
+    </record>
+    <record id="action_stock_analytics_operation_map" model="ir.actions.act_window">
+        <field name="name">Operation Mapping</field><field name="res_model">stock.analytics.operation.map</field><field name="view_mode">tree,form</field>
+    </record>
+</odoo>

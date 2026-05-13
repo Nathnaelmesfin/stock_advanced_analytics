@@ -1,0 +1,13 @@
+<odoo>
+    <record id="view_stock_analytics_status_map_tree" model="ir.ui.view">
+        <field name="name">stock.analytics.status.map.tree</field><field name="model">stock.analytics.status.map</field>
+        <field name="arch" type="xml"><tree><field name="name"/><field name="technical_state"/><field name="business_status"/><field name="applies_to"/><field name="active"/><field name="company_id"/></tree></field>
+    </record>
+    <record id="view_stock_analytics_status_map_form" model="ir.ui.view">
+        <field name="name">stock.analytics.status.map.form</field><field name="model">stock.analytics.status.map</field>
+        <field name="arch" type="xml"><form string="Status Mapping"><sheet><group><field name="name"/><field name="technical_state"/><field name="business_status"/><field name="applies_to"/><field name="active"/><field name="company_id"/></group></sheet></form></field>
+    </record>
+    <record id="action_stock_analytics_status_map" model="ir.actions.act_window">
+        <field name="name">Status Mapping</field><field name="res_model">stock.analytics.status.map</field><field name="view_mode">tree,form</field>
+    </record>
+</odoo>

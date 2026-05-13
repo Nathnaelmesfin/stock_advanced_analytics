@@ -1,0 +1,19 @@
+<odoo>
+    <record id="res_config_settings_view_form_stock_analytics" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.stock.analytics</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="stock.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Inventory Analytics" string="Inventory Analytics" name="stock_advanced_analytics" groups="stock_advanced_analytics.group_stock_analytics_manager">
+                    <block title="Dashboard Defaults"><setting><field name="default_dashboard_date_range"/><field name="auto_refresh_interval"/><field name="default_report_timezone"/></setting><setting><field name="default_warehouse_id"/><field name="pending_operation_late_days"/><field name="no_movement_days_threshold"/></setting></block>
+                    <block title="Analytics Locations"><setting><field name="default_internal_location_ids" widget="many2many_tags"/><field name="consumption_location_ids" widget="many2many_tags"/><field name="branch_location_ids" widget="many2many_tags"/><field name="scrap_location_ids" widget="many2many_tags"/><field name="transit_location_ids" widget="many2many_tags"/></setting></block>
+                    <block title="Enabled Sections"><setting><field name="enable_branch_analytics"/><field name="enable_usage_analytics"/><field name="enable_scrap_analytics"/><field name="enable_adjustment_analytics"/><field name="enable_internal_transfer_analytics"/><field name="enable_receipt_analytics"/><field name="enable_approval_analytics"/><field name="enable_low_stock_analytics"/></setting></block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+    <record id="action_stock_analytics_config_settings" model="ir.actions.act_window">
+        <field name="name">Inventory Analytics Configuration</field><field name="res_model">res.config.settings</field><field name="view_mode">form</field><field name="target">inline</field><field name="context">{'module': 'stock_advanced_analytics'}</field>
+    </record>
+</odoo>
