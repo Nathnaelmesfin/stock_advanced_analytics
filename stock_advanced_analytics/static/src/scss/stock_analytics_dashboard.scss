@@ -1,0 +1,18 @@
+.o_stock_advanced_analytics { background: #f7f9fb; min-height: 100%; }
+.saa-tabs { display:flex; gap:.4rem; flex-wrap:wrap; text-transform: capitalize; }
+.saa-kpi-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:.75rem; }
+.saa-kpi-card { background:white; border:1px solid #d8dee6; border-radius:10px; padding:14px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+.saa-kpi-label { color:#667085; font-size:.78rem; text-transform: capitalize; min-height: 2rem; }
+.saa-kpi-value { font-size:1.45rem; font-weight:700; color:#1f4e78; overflow:hidden; text-overflow:ellipsis; }
+.saa-table-wrap { overflow:auto; max-height:620px; background:white; }
+.saa-table th { position:sticky; top:0; background:#eef5fb; z-index:1; white-space:nowrap; }
+.saa-empty, .saa-loading { padding:2rem; text-align:center; color:#667085; }
+.saa-chart { padding:1rem; }
+.saa-bar-row { display:grid; grid-template-columns: 120px 1fr 60px; gap:.5rem; align-items:center; margin-bottom:.45rem; font-size:.8rem; }
+.saa-bar { height:12px; background:#edf2f7; border-radius:12px; overflow:hidden; }
+.saa-bar div { height:12px; background:#1f77b4; }
+.saa-line svg { width: 100%; height: 120px; background: #fbfdff; border: 1px solid #e5edf5; border-radius: 8px; }
+.saa-donut { display: flex; flex-wrap: wrap; gap: .4rem; padding: 1rem; }
+.saa-donut-pill { border-radius: 999px; background: #eef5fb; color: #1f4e78; padding: .25rem .6rem; font-size: .8rem; }
+.saa-heatmap { display: flex; flex-wrap: wrap; gap: .35rem; padding: 1rem; }
+.saa-heatmap span { background: #e2f0d9; border-radius: 4px; padding: .25rem .45rem; font-size: .75rem; }

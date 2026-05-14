@@ -1,0 +1,13 @@
+<odoo>
+    <record id="view_stock_analytics_location_map_tree" model="ir.ui.view">
+        <field name="name">stock.analytics.location.map.tree</field><field name="model">stock.analytics.location.map</field>
+        <field name="arch" type="xml"><tree><field name="name"/><field name="location_id"/><field name="location_role"/><field name="department"/><field name="branch_label"/><field name="is_consumption_location"/><field name="is_branch_location"/><field name="is_raw_material_location"/><field name="is_finished_location"/><field name="is_catering_location"/><field name="is_staff_meal_location"/><field name="is_scrap_location"/><field name="active"/><field name="company_id"/></tree></field>
+    </record>
+    <record id="view_stock_analytics_location_map_form" model="ir.ui.view">
+        <field name="name">stock.analytics.location.map.form</field><field name="model">stock.analytics.location.map</field>
+        <field name="arch" type="xml"><form string="Location Mapping"><sheet><group><field name="name"/><field name="location_id"/><field name="location_role"/><field name="department"/><field name="branch_label"/><field name="is_consumption_location"/><field name="is_branch_location"/><field name="is_raw_material_location"/><field name="is_finished_location"/><field name="is_catering_location"/><field name="is_staff_meal_location"/><field name="is_scrap_location"/><field name="active"/><field name="company_id"/></group></sheet></form></field>
+    </record>
+    <record id="action_stock_analytics_location_map" model="ir.actions.act_window">
+        <field name="name">Location Mapping</field><field name="res_model">stock.analytics.location.map</field><field name="view_mode">tree,form</field>
+    </record>
+</odoo>

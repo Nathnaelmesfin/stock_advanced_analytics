@@ -1,0 +1,15 @@
+<odoo>
+    <record id="paperformat_stock_analytics_landscape" model="report.paperformat">
+        <field name="name">Inventory Analytics Landscape</field><field name="default" eval="False"/><field name="format">A4</field><field name="orientation">Landscape</field><field name="margin_top">12</field><field name="margin_bottom">10</field><field name="margin_left">7</field><field name="margin_right">7</field><field name="header_line" eval="False"/><field name="dpi">90</field>
+    </record>
+    <record id="action_report_stock_analytics_pdf" model="ir.actions.report">
+        <field name="name">Inventory Analytics PDF</field>
+        <field name="model">stock.analytics.report.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">stock_advanced_analytics.report_stock_analytics_pdf</field>
+        <field name="report_file">stock_advanced_analytics.report_stock_analytics_pdf</field>
+        <field name="paperformat_id" ref="stock_advanced_analytics.paperformat_stock_analytics_landscape"/>
+        <field name="binding_model_id" ref="model_stock_analytics_report_wizard"/>
+        <field name="binding_type">report</field>
+    </record>
+</odoo>

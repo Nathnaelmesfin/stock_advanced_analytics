@@ -1,0 +1,34 @@
+<templates xml:space="preserve">
+    <t t-name="stock_advanced_analytics.KpiCard">
+        <div class="saa-kpi-card"><div class="saa-kpi-label"><t t-esc="props.label"/></div><div class="saa-kpi-value"><t t-esc="props.value ?? 0"/></div></div>
+    </t>
+    <t t-name="stock_advanced_analytics.DataTable">
+        <div class="saa-table-wrap">
+            <t t-if="!rows.length"><div class="saa-empty">No data for selected filters.</div></t>
+            <table t-if="rows.length" class="table table-sm table-hover saa-table"><thead><tr><t t-foreach="headers" t-as="h" t-key="h"><th><t t-esc="h"/></th></t></tr></thead><tbody><t t-foreach="rows.slice(0, 200)" t-as="row" t-key="row_index"><tr><t t-foreach="headers" t-as="h" t-key="h"><td><t t-esc="row[h]"/></td></t></tr></t></tbody></table>
+            <div t-if="rows.length &gt; 200" class="text-muted p-2">Showing first 200 rows. Use reports for full export.</div>
+        </div>
+    </t>
+    <t t-name="stock_advanced_analytics.BarChart">
+        <div class="saa-chart"><t t-if="!rows.length"><div class="saa-empty">No chart data.</div></t><t t-foreach="rows" t-as="r" t-key="r.label || r.group"><div class="saa-bar-row"><span><t t-esc="r.label || r.group"/></span><div class="saa-bar"><div t-att-style="barStyle(r)"/></div><b><t t-esc="getValue(r)"/></b></div></t></div>
+    </t>
+    <t t-name="stock_advanced_analytics.DonutChart">
+        <div class="saa-donut"><t t-if="!rows.length"><div class="saa-empty">No donut data.</div></t><t t-foreach="rows" t-as="r" t-key="r.label || r.group"><span class="saa-donut-pill"><t t-esc="r.label || r.group"/>: <t t-esc="r.value || r.quantity || r.count || 0"/></span></t></div>
+    </t>
+    <t t-name="stock_advanced_analytics.LineChart">
+        <div class="saa-line"><t t-if="!rows.length"><div class="saa-empty">No trend data.</div></t><svg t-if="rows.length" viewBox="0 0 300 100" preserveAspectRatio="none"><polyline t-att-points="points" fill="none" stroke="#1f77b4" stroke-width="3"/><t t-foreach="rows" t-as="r" t-key="r.label || r.group"><circle r="2" fill="#1f77b4"/></t></svg></div>
+    </t>
+    <t t-name="stock_advanced_analytics.HeatmapChart"><div class="saa-heatmap"><t t-foreach="props.rows || []" t-as="r" t-key="r.label || r.group"><span><t t-esc="r.label || r.group"/></span></t><t t-if="!(props.rows || []).length"><div class="saa-empty">No heatmap data.</div></t></div></t>
+    <t t-name="stock_advanced_analytics.Dashboard">
+        <div class="o_stock_advanced_analytics p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3"><div><h2>Inventory Advanced Analytics Dashboard</h2><div class="text-muted"><t t-esc="modeTitle"/></div></div><button class="btn btn-primary" t-on-click="openReports">Reports</button></div>
+            <div class="saa-tabs mb-3"><t t-foreach="state.bootstrap.modes || []" t-as="mode" t-key="mode"><button t-att-class="'btn btn-sm ' + (state.mode === mode ? 'btn-primary' : 'btn-outline-primary')" t-on-click="() => this.setMode(mode)"><t t-esc="modeLabel(mode)"/></button></t></div>
+            <form class="saa-filter card card-body mb-3" t-on-submit="applyFilters"><div class="row g-2"><div class="col"><label>Start Date</label><input class="form-control" type="datetime-local" t-model="state.filters.date_start"/></div><div class="col"><label>End Date</label><input class="form-control" type="datetime-local" t-model="state.filters.date_end"/></div><div class="col"><label>As of Date</label><input class="form-control" type="datetime-local" t-model="state.filters.as_of_datetime"/></div><div class="col"><label>Status</label><input class="form-control" t-model="state.filters.movement_state"/></div><div class="col"><label>Report Basis</label><select class="form-select" t-model="state.filters.report_basis"><option value="quantity">Quantity</option><option value="movement_count">Movement Count</option><option value="transfer_count">Transfer Count</option></select></div><div class="col-auto align-self-end"><button class="btn btn-secondary">Apply</button></div></div></form>
+            <div t-if="state.loading" class="saa-loading">Loading analytics...</div><div t-if="state.error" class="alert alert-danger"><t t-esc="state.error"/></div>
+            <t t-if="!state.loading and !state.error">
+                <div class="saa-kpi-grid mb-3"><t t-foreach="kpiItems" t-as="item" t-key="item.key"><KpiCard label="item.label" value="item.value"/></t></div>
+                <div class="row g-3"><div class="col-lg-8"><div class="card"><div class="card-header">Primary Data</div><DataTable rows="mainRows"/></div></div><div class="col-lg-4"><div class="card mb-3"><div class="card-header">Bar Chart</div><BarChart rows="secondaryRows"/></div><div class="card mb-3"><div class="card-header">Trend</div><LineChart rows="state.data.movement_trend || state.data.trend || secondaryRows"/></div><div class="card"><div class="card-header">Secondary Data</div><DataTable rows="secondaryRows"/></div></div></div>
+            </t>
+        </div>
+    </t>
+</templates>

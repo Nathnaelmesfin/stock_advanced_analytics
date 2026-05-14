@@ -1,0 +1,34 @@
+<odoo>
+    <record id="view_stock_analytics_report_wizard_form" model="ir.ui.view">
+        <field name="name">stock.analytics.report.wizard.form</field>
+        <field name="model">stock.analytics.report.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Inventory Analytics Report">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="report_type"/>
+                            <field name="report_mode"/>
+                            <field name="group_by"/>
+                            <field name="report_basis"/>
+                        </group>
+                        <group>
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="as_of_datetime"/>
+                            <field name="export_format"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Filters"><group><field name="warehouse_ids" widget="many2many_tags"/><field name="location_ids" widget="many2many_tags"/><field name="source_location_ids" widget="many2many_tags"/><field name="destination_location_ids" widget="many2many_tags"/><field name="location_role"/><field name="operation_type_ids" widget="many2many_tags"/><field name="product_category_ids" widget="many2many_tags"/><field name="product_ids" widget="many2many_tags"/><field name="responsible_user_ids" widget="many2many_tags"/><field name="movement_state"/><field name="business_status"/><field name="department"/><field name="branch_label"/></group></page>
+                        <page string="Options"><group><field name="include_raw_moves"/><field name="include_raw_pickings"/><field name="only_late"/><field name="only_backorders"/><field name="only_unfinished"/><field name="only_waiting_approval"/><field name="only_negative_stock"/><field name="only_low_stock"/><field name="only_out_of_stock"/></group></page>
+                    </notebook>
+                </sheet>
+                <footer><button name="action_generate_pdf" string="Generate PDF" type="object" class="btn-primary"/><button name="action_generate_excel" string="Generate Excel" type="object" class="btn-secondary"/><button string="Cancel" special="cancel"/></footer>
+            </form>
+        </field>
+    </record>
+    <record id="action_stock_analytics_report_wizard" model="ir.actions.act_window">
+        <field name="name">Inventory Analytics Reports</field><field name="res_model">stock.analytics.report.wizard</field><field name="view_mode">form</field><field name="target">new</field>
+    </record>
+</odoo>
