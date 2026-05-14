@@ -4,10 +4,26 @@ from odoo import fields, models
 class ResConfigSettings(models.TransientModel):
     _inherit = 'res.config.settings'
 
-    default_dashboard_date_range = fields.Integer(config_parameter='stock_advanced_analytics.default_dashboard_date_range', default=30)
-    auto_refresh_interval = fields.Integer(config_parameter='stock_advanced_analytics.auto_refresh_interval', default=300)
-    default_warehouse_id = fields.Many2one('stock.warehouse', config_parameter='stock_advanced_analytics.default_warehouse_id')
-    default_internal_location_ids = fields.Many2many('stock.location', 'saa_cfg_internal_location_rel')
+    analytics_default_dashboard_date_range = fields.Integer(
+        string='Default Dashboard Date Range (Days)',
+        config_parameter='stock_advanced_analytics.default_dashboard_date_range',
+        default=30,
+    )
+    auto_refresh_interval = fields.Integer(
+        string='Auto Refresh Interval (Seconds)',
+        config_parameter='stock_advanced_analytics.auto_refresh_interval',
+        default=300,
+    )
+    analytics_default_warehouse_id = fields.Many2one(
+        'stock.warehouse',
+        string='Default Warehouse',
+        config_parameter='stock_advanced_analytics.default_warehouse_id',
+    )
+    analytics_default_internal_location_ids = fields.Many2many(
+        'stock.location',
+        'saa_cfg_internal_location_rel',
+        string='Default Internal Locations',
+    )
     consumption_location_ids = fields.Many2many('stock.location', 'saa_cfg_consumption_location_rel')
     scrap_location_ids = fields.Many2many('stock.location', 'saa_cfg_scrap_location_rel')
     branch_location_ids = fields.Many2many('stock.location', 'saa_cfg_branch_location_rel')
@@ -20,18 +36,36 @@ class ResConfigSettings(models.TransientModel):
     enable_receipt_analytics = fields.Boolean(config_parameter='stock_advanced_analytics.enable_receipt_analytics', default=True)
     enable_approval_analytics = fields.Boolean(config_parameter='stock_advanced_analytics.enable_approval_analytics', default=True)
     enable_low_stock_analytics = fields.Boolean(config_parameter='stock_advanced_analytics.enable_low_stock_analytics', default=True)
-    default_report_timezone = fields.Char(config_parameter='stock_advanced_analytics.default_report_timezone', default='Africa/Addis_Ababa')
+    analytics_default_report_timezone = fields.Char(
+        string='Default Report Timezone',
+        config_parameter='stock_advanced_analytics.default_report_timezone',
+        default='Africa/Addis_Ababa',
+    )
     pending_operation_late_days = fields.Integer(config_parameter='stock_advanced_analytics.pending_operation_late_days', default=3)
     no_movement_days_threshold = fields.Integer(config_parameter='stock_advanced_analytics.no_movement_days_threshold', default=60)
 
+    def _analytics_m2m_parameter_fields(self):
+        return {
+            'default_internal_location_ids': 'analytics_default_internal_location_ids',
+            'consumption_location_ids': 'consumption_location_ids',
+            'scrap_location_ids': 'scrap_location_ids',
+            'branch_location_ids': 'branch_location_ids',
+            'transit_location_ids': 'transit_location_ids',
+        }
+
     def get_values(self):
-        res = super().get_values(); ICP = self.env['ir.config_parameter'].sudo()
-        for field in ['default_internal_location_ids','consumption_location_ids','scrap_location_ids','branch_location_ids','transit_location_ids']:
-            value = ICP.get_param(f'stock_advanced_analytics.{field}', '')
-            res[field] = [(6, 0, [int(x) for x in value.split(',') if x])]
+        res = super().get_values()
+        ICP = self.env['ir.config_parameter'].sudo()
+        for parameter_key, field_name in self._analytics_m2m_parameter_fields().items():
+            value = ICP.get_param(f'stock_advanced_analytics.{parameter_key}', '')
+            res[field_name] = [(6, 0, [int(x) for x in value.split(',') if x])]
         return res
 
     def set_values(self):
-        super().set_values(); ICP = self.env['ir.config_parameter'].sudo()
-        for field in ['default_internal_location_ids','consumption_location_ids','scrap_location_ids','branch_location_ids','transit_location_ids']:
-            ICP.set_param(f'stock_advanced_analytics.{field}', ','.join(map(str, self[field].ids)))
+        super().set_values()
+        ICP = self.env['ir.config_parameter'].sudo()
+        for parameter_key, field_name in self._analytics_m2m_parameter_fields().items():
+            ICP.set_param(
+                f'stock_advanced_analytics.{parameter_key}',
+                ','.join(map(str, self[field_name].ids)),
+            )
