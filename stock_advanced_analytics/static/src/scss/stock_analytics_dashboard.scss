@@ -11,3 +11,8 @@
 .saa-bar-row { display:grid; grid-template-columns: 120px 1fr 60px; gap:.5rem; align-items:center; margin-bottom:.45rem; font-size:.8rem; }
 .saa-bar { height:12px; background:#edf2f7; border-radius:12px; overflow:hidden; }
 .saa-bar div { height:12px; background:#1f77b4; }
+.saa-line svg { width: 100%; height: 120px; background: #fbfdff; border: 1px solid #e5edf5; border-radius: 8px; }
+.saa-donut { display: flex; flex-wrap: wrap; gap: .4rem; padding: 1rem; }
+.saa-donut-pill { border-radius: 999px; background: #eef5fb; color: #1f4e78; padding: .25rem .6rem; font-size: .8rem; }
+.saa-heatmap { display: flex; flex-wrap: wrap; gap: .35rem; padding: 1rem; }
+.saa-heatmap span { background: #e2f0d9; border-radius: 4px; padding: .25rem .45rem; font-size: .75rem; }

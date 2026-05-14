@@ -13,10 +13,24 @@ export class DataTable extends Component {
 export class BarChart extends Component {
     static template = "stock_advanced_analytics.BarChart";
     get rows() { return Array.isArray(this.props.rows) ? this.props.rows.slice(0, 12) : []; }
-    get maxValue() { return Math.max(1, ...this.rows.map((r) => Number(r.value || r.quantity || r.count || 0))); }
+    getValue(row) { return Number(row?.value || row?.quantity || row?.count || 0); }
+    get maxValue() { return Math.max(1, ...this.rows.map((row) => this.getValue(row))); }
+    barStyle(row) { return `width:${Math.max(2, (this.getValue(row) / this.maxValue) * 100)}%`; }
 }
-export class DonutChart extends Component { static template = "stock_advanced_analytics.DonutChart"; }
-export class LineChart extends Component { static template = "stock_advanced_analytics.LineChart"; }
+export class DonutChart extends Component {
+    static template = "stock_advanced_analytics.DonutChart";
+    get rows() { return Array.isArray(this.props.rows) ? this.props.rows.slice(0, 8) : []; }
+}
+export class LineChart extends Component {
+    static template = "stock_advanced_analytics.LineChart";
+    get rows() { return Array.isArray(this.props.rows) ? this.props.rows.slice(0, 20) : []; }
+    get points() {
+        const values = this.rows.map((row) => Number(row?.value || row?.quantity || row?.count || 0));
+        const max = Math.max(1, ...values);
+        if (!values.length) { return ""; }
+        return values.map((value, index) => `${10 + index * (280 / Math.max(values.length - 1, 1))},${90 - (value / max) * 70}`).join(" ");
+    }
+}
 export class HeatmapChart extends Component { static template = "stock_advanced_analytics.HeatmapChart"; }
 
 export class StockAnalyticsDashboard extends Component {
@@ -27,7 +41,15 @@ export class StockAnalyticsDashboard extends Component {
         this.notification = useService("notification");
         this.action = useService("action");
         this.state = useState({ loading: true, error: null, bootstrap: {}, data: {}, mode: this.props.action?.context?.mode || "live_dashboard", filters: {}, refreshTimer: null });
-        onWillStart(async () => { await this.loadBootstrap(); await this.loadData(); });
+        onWillStart(async () => {
+            try {
+                await this.loadBootstrap();
+                await this.loadData();
+            } catch (error) {
+                this.state.error = error.message || String(error);
+                this.state.loading = false;
+            }
+        });
         onWillUnmount(() => { if (this.state.refreshTimer) clearInterval(this.state.refreshTimer); });
     }
     async loadBootstrap() {
@@ -47,6 +69,8 @@ export class StockAnalyticsDashboard extends Component {
     async openReports() { await this.action.doAction("stock_advanced_analytics.action_stock_analytics_report_wizard"); }
     get modeTitle() { return (this.state.mode || "").replaceAll("_", " ").replace(/\b\w/g, (m) => m.toUpperCase()); }
     get kpis() { return this.state.data.kpis || {}; }
+    get kpiItems() { return Object.entries(this.kpis).map(([key, value]) => ({ key, label: key.replaceAll("_", " "), value })); }
+    modeLabel(mode) { return (mode || "").replaceAll("_", " "); }
     get mainRows() {
         const d = this.state.data;
         return d.rows || d.current_stock || d.raw_pickings || d.unfinished_transfers || d.raw_lines || d.status_breakdown || [];

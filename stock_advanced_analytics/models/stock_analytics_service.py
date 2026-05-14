@@ -106,9 +106,9 @@ class StockAnalyticsService(models.AbstractModel):
         if settings['enable_branch_analytics']:
             data['branch'] = self.get_branch_analytics(filters)
         if settings['enable_internal_transfer_analytics']:
-            data['internal_transfer'] = self.get_internal_transfer_analysis(filters)
+            data['internal_transfer'] = {'kpis': self._get_internal_transfer_kpis(filters)}
         if settings['enable_receipt_analytics']:
-            data['receipts'] = self.get_receipt_analysis(filters)
+            data['receipts'] = {'kpis': self._get_receipt_kpis(filters)}
         data['unfinished'] = self.get_unfinished_operations(filters)
         return data
 
@@ -134,19 +134,42 @@ class StockAnalyticsService(models.AbstractModel):
 
     @api.model
     def _get_current_stock_by_location(self, filters):
-        filters = filters or {}; rows = []; role_by_loc = {m.location_id.id: m.location_role for m in self.env['stock.analytics.location.map'].search([('active', '=', True)])}
-        for quant in self.env['stock.quant'].search(self._quant_domain(filters), limit=5000):
-            product = quant.product_id; location = quant.location_id
+        filters = filters or {}
+        rows = []
+        limit = int(filters.get('limit') or 800)
+        role_by_loc = {m.location_id.id: m.location_role for m in self.env['stock.analytics.location.map'].search([('active', '=', True)])}
+        quants = self.env['stock.quant'].search(self._quant_domain(filters), limit=limit, order='write_date desc, id desc')
+        product_ids = quants.mapped('product_id').ids
+        location_ids = quants.mapped('location_id').ids
+        last_dates = {}
+        last_in_dates = {}
+        last_out_dates = {}
+        if product_ids and location_ids:
+            line_domain = [('state', '=', 'done'), ('product_id', 'in', product_ids), '|', ('location_id', 'in', location_ids), ('location_dest_id', 'in', location_ids)]
+            for line in self.env['stock.move.line'].search(line_domain, order='date desc', limit=3000):
+                p_id = line.product_id.id
+                date_str = fields.Datetime.to_string(line.date)
+                if line.location_dest_id.id in location_ids:
+                    key = (p_id, line.location_dest_id.id)
+                    last_dates.setdefault(key, date_str)
+                    last_in_dates.setdefault(key, date_str)
+                if line.location_id.id in location_ids:
+                    key = (p_id, line.location_id.id)
+                    last_dates.setdefault(key, date_str)
+                    last_out_dates.setdefault(key, date_str)
+        warehouse_cache = {}
+        for quant in quants:
+            product = quant.product_id
+            location = quant.location_id
             if not product or location.usage not in ('internal', 'transit'):
                 continue
-            last_domain = [('product_id', '=', product.id), '|', ('location_id', '=', location.id), ('location_dest_id', '=', location.id), ('state', '=', 'done')]
-            last = self.env['stock.move.line'].search(last_domain, order='date desc', limit=1)
-            incoming = self.env['stock.move.line'].search([('product_id', '=', product.id), ('location_dest_id', '=', location.id), ('state', '=', 'done')], order='date desc', limit=1)
-            outgoing = self.env['stock.move.line'].search([('product_id', '=', product.id), ('location_id', '=', location.id), ('state', '=', 'done')], order='date desc', limit=1)
             reserved = quant.reserved_quantity if 'reserved_quantity' in quant._fields else 0.0
             available = quant.quantity - reserved
             status = 'negative' if quant.quantity < 0 else ('out_of_stock' if quant.quantity == 0 else 'available')
-            rows.append({'product': product.display_name, 'category': product.categ_id.display_name, 'type': product.type, 'uom': product.uom_id.name, 'warehouse': self._warehouse_for_location(location), 'location': location.display_name, 'role': role_by_loc.get(location.id, ''), 'on_hand': quant.quantity, 'reserved': reserved, 'available': available, 'last_movement': fields.Datetime.to_string(last.date) if last else '', 'last_incoming': fields.Datetime.to_string(incoming.date) if incoming else '', 'last_outgoing': fields.Datetime.to_string(outgoing.date) if outgoing else '', 'status': status})
+            key = (product.id, location.id)
+            if location.id not in warehouse_cache:
+                warehouse_cache[location.id] = self._warehouse_for_location(location)
+            rows.append({'product': product.display_name, 'category': product.categ_id.display_name, 'type': product.type, 'uom': product.uom_id.name, 'warehouse': warehouse_cache[location.id], 'location': location.display_name, 'role': role_by_loc.get(location.id, ''), 'on_hand': quant.quantity, 'reserved': reserved, 'available': available, 'last_movement': last_dates.get(key, ''), 'last_incoming': last_in_dates.get(key, ''), 'last_outgoing': last_out_dates.get(key, ''), 'status': status})
         return rows
 
     @api.model
@@ -162,7 +185,7 @@ class StockAnalyticsService(models.AbstractModel):
     @api.model
     def _get_movement_ledger_balance(self, filters):
         filters = filters or {}; qty_field = self.env['stock.analytics.history.service'].get_quantity_field(); balances = defaultdict(float)
-        lines = self.env['stock.move.line'].search(self.env['stock.analytics.history.service'].get_done_move_line_domain(filters), limit=10000)
+        lines = self.env['stock.move.line'].search(self.env['stock.analytics.history.service'].get_done_move_line_domain(filters), limit=3000)
         for line in lines:
             qty = line[qty_field] or 0.0; balances[(line.product_id.id, line.location_dest_id.id)] += qty; balances[(line.product_id.id, line.location_id.id)] -= qty
         for ob in self.env['stock.analytics.opening.balance'].search([('active', '=', True), '|', ('company_id', '=', False), ('company_id', 'in', self.env.companies.ids)]):
@@ -176,7 +199,7 @@ class StockAnalyticsService(models.AbstractModel):
 
     @api.model
     def _get_quant_vs_ledger_difference(self, filters):
-        quant_rows = {(q.product_id.display_name, q.location_id.display_name): q.quantity for q in self.env['stock.quant'].search(self._quant_domain(filters or {}), limit=5000)}
+        quant_rows = {(q.product_id.display_name, q.location_id.display_name): q.quantity for q in self.env['stock.quant'].search(self._quant_domain(filters or {}), limit=800)}
         ledger_rows = {(r['product'], r['location']): r['ledger_quantity'] for r in self._get_movement_ledger_balance(filters or {})}
         rows = []
         for key in set(quant_rows) | set(ledger_rows):
@@ -198,20 +221,20 @@ class StockAnalyticsService(models.AbstractModel):
     @api.model
     def _get_movement_trend(self, filters):
         qty_field = self.env['stock.analytics.history.service'].get_quantity_field(); totals = defaultdict(float)
-        for line in self.env['stock.move.line'].search(self._move_line_domain(filters), limit=10000):
+        for line in self.env['stock.move.line'].search(self._move_line_domain(filters), limit=3000):
             totals[fields.Date.to_string(line.date.date())] += line[qty_field] or 0.0
         return [{'label': d, 'value': v} for d, v in sorted(totals.items())]
 
     @api.model
     def _get_top_products(self, filters):
         qty_field = self.env['stock.analytics.history.service'].get_quantity_field(); totals = Counter()
-        for line in self.env['stock.move.line'].search(self._move_line_domain(filters), limit=10000): totals[line.product_id.display_name] += line[qty_field] or 0.0
+        for line in self.env['stock.move.line'].search(self._move_line_domain(filters), limit=3000): totals[line.product_id.display_name] += line[qty_field] or 0.0
         return [{'label': k, 'value': v} for k, v in totals.most_common(10)]
 
     @api.model
     def _get_top_categories(self, filters):
         qty_field = self.env['stock.analytics.history.service'].get_quantity_field(); totals = Counter()
-        for line in self.env['stock.move.line'].search(self._move_line_domain(filters), limit=10000): totals[line.product_id.categ_id.display_name] += line[qty_field] or 0.0
+        for line in self.env['stock.move.line'].search(self._move_line_domain(filters), limit=3000): totals[line.product_id.categ_id.display_name] += line[qty_field] or 0.0
         return [{'label': k, 'value': v} for k, v in totals.most_common(10)]
 
     @api.model
@@ -310,10 +333,17 @@ class StockAnalyticsService(models.AbstractModel):
     @api.model
     def _pickings_to_rows(self, pickings, applies_to='internal_transfer'):
         rows=[]; approval=self._safe_approval_fields(); qty_field=self.env['stock.analytics.history.service'].get_quantity_field()
+        type_ids = pickings.mapped('picking_type_id').ids
+        mappings = {m.picking_type_id.id: m for m in self.env['stock.analytics.operation.map'].search([('picking_type_id', 'in', type_ids), ('active', '=', True)])} if type_ids else {}
+        has_user = self._model_has_field('stock.picking','user_id')
+        has_scheduled = self._model_has_field('stock.picking','scheduled_date')
+        has_done_date = self._model_has_field('stock.picking','date_done')
+        has_priority = self._model_has_field('stock.picking','priority')
         for p in pickings:
             move_lines = p.move_line_ids; demand = sum(p.move_ids.mapped('product_uom_qty')); done = sum((ml[qty_field] or 0.0) for ml in move_lines); pending=max(demand-done,0.0)
-            scheduled = p.scheduled_date if self._model_has_field('stock.picking','scheduled_date') else False; done_date = p.date_done if self._model_has_field('stock.picking','date_done') else False
-            rows.append({'reference': p.name, 'operation_type': p.picking_type_id.display_name, 'source_location': p.location_id.display_name, 'destination_location': p.location_dest_id.display_name, 'department': self._department_for_picking(p), 'branch': self._branch_for_picking(p), 'requested_by': p[ 'requested_by'].display_name if approval.get('requested_by') and p['requested_by'] else '', 'responsible_user': p.user_id.display_name if self._model_has_field('stock.picking','user_id') and p.user_id else '', 'approved_by': p['approved_by'].display_name if approval.get('approved_by') and p['approved_by'] else '', 'request_date': fields.Datetime.to_string(p.create_date), 'scheduled_date': fields.Datetime.to_string(scheduled) if scheduled else '', 'done_date': fields.Datetime.to_string(done_date) if done_date else '', 'status': p.state, 'business_status': self._business_status(p, applies_to), 'product_count': len(p.move_ids.mapped('product_id')), 'requested_qty': demand, 'done_qty': done, 'pending_qty': pending, 'late_days': self._late_days(p), 'back_order': self._is_backorder(p), 'priority': getattr(p, 'priority', '') if self._model_has_field('stock.picking','priority') else '', 'origin': p.origin or ''})
+            scheduled = p.scheduled_date if has_scheduled else False; done_date = p.date_done if has_done_date else False
+            mapping = mappings.get(p.picking_type_id.id)
+            rows.append({'reference': p.name, 'operation_type': p.picking_type_id.display_name, 'source_location': p.location_id.display_name, 'destination_location': p.location_dest_id.display_name, 'department': mapping.department if mapping else '', 'branch': mapping.branch_label if mapping else '', 'requested_by': p['requested_by'].display_name if approval.get('requested_by') and p['requested_by'] else '', 'responsible_user': p.user_id.display_name if has_user and p.user_id else '', 'approved_by': p['approved_by'].display_name if approval.get('approved_by') and p['approved_by'] else '', 'request_date': fields.Datetime.to_string(p.create_date), 'scheduled_date': fields.Datetime.to_string(scheduled) if scheduled else '', 'done_date': fields.Datetime.to_string(done_date) if done_date else '', 'status': p.state, 'business_status': self._business_status(p, applies_to), 'product_count': len(p.move_ids.mapped('product_id')), 'requested_qty': demand, 'done_qty': done, 'pending_qty': pending, 'late_days': self._late_days(p), 'back_order': self._is_backorder(p), 'priority': getattr(p, 'priority', '') if has_priority else '', 'origin': p.origin or ''})
         return rows
 
     @api.model
@@ -340,14 +370,14 @@ class StockAnalyticsService(models.AbstractModel):
         return mapping.branch_label or ''
 
     @api.model
-    def _get_pending_operations(self, filters): return self._pickings_to_rows(self.env['stock.picking'].search(self._picking_domain(dict(filters or {}, only_unfinished=True))), 'all')
+    def _get_pending_operations(self, filters): return self._pickings_to_rows(self.env['stock.picking'].search(self._picking_domain(dict(filters or {}, only_unfinished=True)), limit=500), 'all')
     @api.model
     def _get_late_operations(self, filters): return [r for r in self._get_pending_operations(filters) if r['late_days']]
     @api.model
-    def _get_backorder_analysis(self, filters): return [r for r in self._pickings_to_rows(self.env['stock.picking'].search(self._picking_domain(filters)), 'all') if r['back_order']]
+    def _get_backorder_analysis(self, filters): return [r for r in self._pickings_to_rows(self.env['stock.picking'].search(self._picking_domain(filters), limit=500), 'all') if r['back_order']]
     @api.model
     def _get_requested_product_analysis(self, filters):
-        pickings = self.env['stock.picking'].search(self._picking_domain(filters), limit=5000); totals={}
+        pickings = self.env['stock.picking'].search(self._picking_domain(filters), limit=500); totals={}
         for p in pickings:
             for m in p.move_ids:
                 key=m.product_id.id; rec=totals.setdefault(key, {'product':m.product_id.display_name,'category':m.product_id.categ_id.display_name,'requested_qty':0,'approved_qty':0,'done_qty':0,'pending_qty':0,'cancelled_qty':0,'request_count':0,'late_request_count':0,'top_requesting_location':p.location_id.display_name,'top_requesting_user':p.user_id.display_name if self._model_has_field('stock.picking','user_id') and p.user_id else ''})
@@ -363,7 +393,7 @@ class StockAnalyticsService(models.AbstractModel):
         qty_field=self.env['stock.analytics.history.service'].get_quantity_field(); domain=self._move_line_domain(filters)+[('location_dest_id','in',list(loc_ids))]
         rows=[]; by_prod=Counter(); by_cat=Counter(); by_dept=Counter(); by_loc=Counter(); trend=Counter()
         maps={m.location_id.id:m for m in self.env['stock.analytics.location.map'].search([('location_id','in',list(loc_ids)),('active','=',True)])}
-        for line in self.env['stock.move.line'].search(domain, limit=10000):
+        for line in self.env['stock.move.line'].search(domain, limit=3000):
             qty=line[qty_field] or 0.0; mapping=maps.get(line.location_dest_id.id); dept=(mapping.department if mapping else '') or ''
             row={'product':line.product_id.display_name,'category':line.product_id.categ_id.display_name,'department':dept,'source':line.location_id.display_name,'used_location':line.location_dest_id.display_name,'quantity_used':qty,'uom':line.product_uom_id.name,'reference':line.reference or (line.picking_id.name if line.picking_id else ''),'user':line.picking_id.user_id.display_name if line.picking_id and self._model_has_field('stock.picking','user_id') and line.picking_id.user_id else '','date':fields.Datetime.to_string(line.date)}
             rows.append(row); by_prod[row['product']]+=qty; by_cat[row['category']]+=qty; by_dept[dept or _('Unmapped')]+=qty; by_loc[row['used_location']]+=qty; trend[fields.Date.to_string(line.date.date())]+=qty
@@ -380,7 +410,7 @@ class StockAnalyticsService(models.AbstractModel):
 
     @api.model
     def _get_internal_transfer_kpis(self, filters):
-        rows=self._pickings_to_rows(self.env['stock.picking'].search(self._picking_domain(filters,'internal'), limit=5000),'internal_transfer'); c=Counter(r['business_status'] for r in rows)
+        rows=self._pickings_to_rows(self.env['stock.picking'].search(self._picking_domain(filters,'internal'), limit=500),'internal_transfer'); c=Counter(r['business_status'] for r in rows)
         return {'total_internal_transfer_requests':len(rows),'draft_requests':c['draft_request'],'waiting_approval':c['waiting_approval'],'approved_requests':c['approved_ready'],'ready_to_process':c['approved_ready'],'waiting_availability':c['waiting_availability'],'received_done':c['received_done'],'cancelled':c['cancelled'],'late_transfers':c['late'],'back_orders':c['back_order'],'unfinished_transfers':sum(1 for r in rows if r['status'] not in ('done','cancel')),'total_requested_qty':sum(r['requested_qty'] for r in rows),'total_done_qty':sum(r['done_qty'] for r in rows)}
 
     def _breakdown(self, rows, key):
@@ -390,7 +420,7 @@ class StockAnalyticsService(models.AbstractModel):
 
     @api.model
     def get_internal_transfer_analysis(self, filters):
-        self._check_user_access(); pickings=self.env['stock.picking'].search(self._picking_domain(filters or {},'internal'), limit=5000); rows=self._pickings_to_rows(pickings,'internal_transfer'); line_rows=self._line_rows(pickings)
+        self._check_user_access(); pickings=self.env['stock.picking'].search(self._picking_domain(filters or {},'internal'), limit=500); rows=self._pickings_to_rows(pickings,'internal_transfer'); line_rows=self._line_rows(pickings)
         return {'kpis':self._get_internal_transfer_kpis(filters or {}),'status_breakdown':self._breakdown(rows,'business_status'),'user_breakdown':self._breakdown(rows,'responsible_user'),'location_breakdown':self._breakdown(rows,'destination_location'),'operation_breakdown':self._breakdown(rows,'operation_type'),'requested_products':self._get_requested_product_analysis(filters or {}),'late_transfers':[r for r in rows if r['late_days']],'unfinished_transfers':[r for r in rows if r['status'] not in ('done','cancel')],'raw_pickings':rows,'raw_lines':line_rows,'charts':{'status':self._breakdown(rows,'business_status'),'operation':self._breakdown(rows,'operation_type')}}
 
     _get_internal_transfer_status_breakdown = lambda self, f: self.get_internal_transfer_analysis(f)['status_breakdown']
@@ -405,12 +435,12 @@ class StockAnalyticsService(models.AbstractModel):
 
     @api.model
     def _get_receipt_kpis(self, filters):
-        rows=self._pickings_to_rows(self.env['stock.picking'].search(self._picking_domain(filters,'receipt'), limit=5000),'receipt'); c=Counter(r['business_status'] for r in rows)
+        rows=self._pickings_to_rows(self.env['stock.picking'].search(self._picking_domain(filters,'receipt'), limit=500),'receipt'); c=Counter(r['business_status'] for r in rows)
         return {'total_receipt_requests':len(rows),'draft_receipts':c['draft_request'],'waiting_approval':c['waiting_approval'],'approved_receipts':c['approved_ready'],'ready_to_receive':c['approved_ready'],'received_receipts':c['received_done'],'cancelled_receipts':c['cancelled'],'late_receipts':c['late'],'back_orders':c['back_order'],'unfinished_receipts':sum(1 for r in rows if r['status'] not in ('done','cancel')),'total_requested_qty':sum(r['requested_qty'] for r in rows),'total_received_qty':sum(r['done_qty'] for r in rows),'pending_qty':sum(r['pending_qty'] for r in rows)}
 
     @api.model
     def get_receipt_analysis(self, filters):
-        self._check_user_access(); pickings=self.env['stock.picking'].search(self._picking_domain(filters or {},'receipt'), limit=5000); rows=self._pickings_to_rows(pickings,'receipt'); line_rows=self._line_rows(pickings)
+        self._check_user_access(); pickings=self.env['stock.picking'].search(self._picking_domain(filters or {},'receipt'), limit=500); rows=self._pickings_to_rows(pickings,'receipt'); line_rows=self._line_rows(pickings)
         for row,p in zip(rows,pickings):
             row['vendor']=p.partner_id.display_name if self._model_has_field('stock.picking','partner_id') and p.partner_id else ''; row['purchase_order']=p.origin or ''
         return {'kpis':self._get_receipt_kpis(filters or {}),'status_breakdown':self._breakdown(rows,'business_status'),'user_breakdown':self._breakdown(rows,'responsible_user'),'location_breakdown':self._breakdown(rows,'destination_location'),'vendor_breakdown':self._breakdown(rows,'vendor'),'product_breakdown':self._get_requested_product_analysis(filters or {}),'late_receipts':[r for r in rows if r['late_days']],'unfinished_receipts':[r for r in rows if r['status'] not in ('done','cancel')],'raw_pickings':rows,'raw_lines':line_rows}
@@ -434,7 +464,7 @@ class StockAnalyticsService(models.AbstractModel):
     def get_operation_type_monitor(self, filters):
         self._check_user_access(); rows=[]
         for pt in self.env['stock.picking.type'].search([]):
-            picks=self.env['stock.picking'].search([('picking_type_id','=',pt.id),('company_id','in',self.env.companies.ids)], limit=5000); pr=self._pickings_to_rows(picks,'all')
+            picks=self.env['stock.picking'].search([('picking_type_id','=',pt.id),('company_id','in',self.env.companies.ids)], limit=300); pr=self._pickings_to_rows(picks,'all')
             rows.append({'operation_type':pt.display_name,'to_process':sum(1 for r in pr if r['status'] not in ('done','cancel')),'waiting':sum(1 for r in pr if r['status'] in ('waiting','confirmed')),'ready':sum(1 for r in pr if r['status']=='assigned'),'late':sum(1 for r in pr if r['late_days']),'back_orders':sum(1 for r in pr if r['back_order']),'done_today':sum(1 for r in pr if r['done_date'] and r['done_date'][:10] == fields.Date.to_string(fields.Date.today())),'done_this_week':0,'done_this_month':sum(1 for r in pr if r['done_date'] and r['done_date'][:7] == fields.Date.to_string(fields.Date.today())[:7]),'average_processing_time':0,'requested_qty':sum(r['requested_qty'] for r in pr),'done_qty':sum(r['done_qty'] for r in pr),'pending_qty':sum(r['pending_qty'] for r in pr)})
         return {'rows':rows}
 
@@ -474,7 +504,7 @@ class StockAnalyticsService(models.AbstractModel):
         else:
             data['sections']={'KPI Summary':[self._get_kpis(filters)],'Current Stock':self._get_current_stock_by_location(filters),'Movement Summary':self.get_stock_movement_analysis(filters).get('rows',[]),'Consumption Summary':self.get_consumption_analytics(filters).get('rows',[]),'Branch Summary':self.get_branch_analytics(filters).get('rows',[]),'Internal Transfer Summary':self.get_internal_transfer_analysis(filters).get('raw_pickings',[]),'Receipt Summary':self.get_receipt_analysis(filters).get('raw_pickings',[]),'Unfinished Operations':self.get_unfinished_operations(filters).get('rows',[]),'Quant vs Ledger':self._get_quant_vs_ledger_difference(filters)}
         if filters.get('include_raw_moves'): data['sections']['Raw Movements']=self._raw_movement_rows(filters)
-        if filters.get('include_raw_pickings'): data['sections']['Raw Pickings']=self._pickings_to_rows(self.env['stock.picking'].search(self._picking_domain(filters), limit=5000),'all')
+        if filters.get('include_raw_pickings'): data['sections']['Raw Pickings']=self._pickings_to_rows(self.env['stock.picking'].search(self._picking_domain(filters), limit=1000),'all')
         return data
 
     def _sections_from_analysis(self, analysis, label):
@@ -496,7 +526,7 @@ class StockAnalyticsService(models.AbstractModel):
 
     def _raw_movement_rows(self, filters):
         qty_field=self.env['stock.analytics.history.service'].get_quantity_field(); rows=[]
-        for line in self.env['stock.move.line'].search(self._move_line_domain(filters), limit=10000): rows.append({'reference':line.reference,'product':line.product_id.display_name,'category':line.product_id.categ_id.display_name,'source_location':line.location_id.display_name,'destination_location':line.location_dest_id.display_name,'quantity':line[qty_field] or 0,'uom':line.product_uom_id.name,'date':fields.Datetime.to_string(line.date),'status':line.state})
+        for line in self.env['stock.move.line'].search(self._move_line_domain(filters), limit=3000): rows.append({'reference':line.reference,'product':line.product_id.display_name,'category':line.product_id.categ_id.display_name,'source_location':line.location_id.display_name,'destination_location':line.location_dest_id.display_name,'quantity':line[qty_field] or 0,'uom':line.product_uom_id.name,'date':fields.Datetime.to_string(line.date),'status':line.state})
         return rows
 
     @api.model
